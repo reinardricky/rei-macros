@@ -35,7 +35,7 @@ function getClient(): GoogleGenAI {
 export async function analyzeWithGemini(input: AnalyzeInput, signal?: AbortSignal) {
   const parts: Part[] = [];
   if (input.imageBase64) parts.push({ inlineData: { mimeType: 'image/jpeg', data: input.imageBase64 } });
-  parts.push({ text: userText(input) });
+  parts.push({ text: userText({ ...input, hasPhoto: Boolean(input.imageBase64) }) });
 
   let lastError: AnalysisError | null = null;
   for (const model of GEMINI_MODELS) {

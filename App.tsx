@@ -15,6 +15,7 @@ import { DATABASE_NAME, migrateDbIfNeeded } from './src/lib/db';
 import { Navigator, type Route } from './src/navigation';
 import { AnalyzeScreen } from './src/screens/AnalyzeScreen';
 import { CaptureScreen } from './src/screens/CaptureScreen';
+import { ClaudeAppScreen } from './src/screens/ClaudeAppScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { TabsScreen } from './src/screens/TabsScreen';
 import { colors } from './src/theme';
@@ -27,6 +28,8 @@ function renderScreen(route: Route) {
       return <CaptureScreen />;
     case 'analyze':
       return <AnalyzeScreen />;
+    case 'claudeApp':
+      return <ClaudeAppScreen />;
     case 'settings':
       return <SettingsScreen />;
   }

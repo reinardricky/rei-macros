@@ -32,10 +32,14 @@ export type NewMeal = Omit<Meal, 'id'>;
 
 export type Goals = Macros;
 
+/** `api` = the in-app AI call (Gemini by default); `claude-app` = hand off to the Claude app. */
+export type Analyzer = 'api' | 'claude-app';
+
 export type Settings = {
   goals: Goals;
   keepPhotos: boolean;
   reviewBeforeLogging: boolean;
+  analyzer: Analyzer;
 };
 
 export type DayTotals = Macros & {

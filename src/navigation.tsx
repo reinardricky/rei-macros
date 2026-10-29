@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
 
+import type { MealAnalysis } from './lib/ai';
 import type { MealSlot } from './lib/types';
+
+export type PhotoRef = { uri: string; width: number; height: number };
 
 /** Every screen and the data it opens with. */
 export type Route =
@@ -12,8 +15,11 @@ export type Route =
       date: string;
       slot: MealSlot;
       note: string;
-      photo?: { uri: string; width: number; height: number };
+      photo?: PhotoRef;
+      /** Already analyzed (e.g. pasted from the Claude app): skip the AI call and go straight to review. */
+      result?: MealAnalysis;
     }
+  | { name: 'claudeApp'; date: string; slot: MealSlot; note: string; photo?: PhotoRef }
   | { name: 'settings' };
 
 export type RouteName = Route['name'];

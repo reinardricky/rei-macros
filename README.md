@@ -54,7 +54,11 @@ Install it with `adb install -r <path>`, or use `npm run android:release`. The A
 | Permissions | `android/app/src/main/AndroidManifest.xml` |
 | Gradle memory / workers | `android/gradle.properties` (`org.gradle.workers.max=6` keeps builds from running this PC out of memory) |
 
-## Switching to Claude
+## Using your Claude plan (Claude app)
+
+On the camera screen, switch **Analyze with** to **Claude app**. The app copies a prompt and opens the share menu with the photo: pick Claude, paste the prompt and send. When Claude replies, tap Copy under its answer, come back and tap **Paste Claude's reply** to get the usual review screen. This runs on your own Claude subscription in the Claude app, so no API key is needed. The analyze screen also offers "Use the Claude app instead" when Gemini is busy.
+
+## Switching the in-app AI to the Claude API
 
 Set `EXPO_PUBLIC_AI_PROVIDER=claude` and `EXPO_PUBLIC_ANTHROPIC_API_KEY` in `.env` (see `.env.example`). Claude's API is pay-as-you-go.
 

@@ -45,21 +45,22 @@ export function AnalyzeScreen() {
   const db = useSQLiteContext();
   const nav = useNav();
   const route = useRoute('analyze');
-  const { date, slot, note, photo: source } = route;
+  const { date, slot, note, photo: source, result } = route;
   const photoUri = source?.uri;
 
-  const [phase, setPhase] = useState<Phase>(photoUri ? 'preparing' : 'asking');
+  // With a `result` (pasted from the Claude app) there's nothing to analyze: start at review.
+  const [phase, setPhase] = useState<Phase>(result ? 'review' : photoUri ? 'preparing' : 'asking');
   const [error, setError] = useState<AnalysisError | null>(null);
-  const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
-  const [mealName, setMealName] = useState('');
-  const [notes, setNotes] = useState('');
-  const [items, setItems] = useState<EditableItem[]>([]);
+  const [photo, setPhoto] = useState<{ uri: string } | null>(result && source ? { uri: source.uri } : null);
+  const [mealName, setMealName] = useState(result?.mealName ?? '');
+  const [notes, setNotes] = useState(result?.notes ?? '');
+  const [items, setItems] = useState<EditableItem[]>(() => result?.items.map((base) => ({ base, mult: 1 })) ?? []);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const save = useCallback(
-    async (analysis: { mealName: string; items: MealItem[] }, prepared: PreparedPhoto | null) => {
+    async (analysis: { mealName: string; items: MealItem[] }, prepared: { uri: string } | null) => {
       const settings = await getSettings(db);
       await insertMeal(db, {
         date,
@@ -117,11 +118,12 @@ export function AnalyzeScreen() {
   );
 
   useEffect(() => {
+    if (result) return;
     const controller = new AbortController();
     abortRef.current = controller;
     analyze(controller);
     return () => controller.abort();
-  }, [analyze]);
+  }, [analyze, result]);
 
   const retry = () => {
     abortRef.current?.abort();
@@ -140,6 +142,11 @@ export function AnalyzeScreen() {
   const retake = () => {
     abortRef.current?.abort();
     nav.replace({ name: 'capture', date, slot, note, describe: !photoUri });
+  };
+
+  const switchToClaudeApp = () => {
+    abortRef.current?.abort();
+    nav.replace({ name: 'claudeApp', date, slot, note, photo: source });
   };
 
   const scaled = items.map(scale);
@@ -207,16 +214,22 @@ export function AnalyzeScreen() {
           )}
         </ScrollView>
         <View style={styles.waitFooter}>
-          {phase === 'error' ? (
-            <>
-              <Button title={photoUri ? 'Retake' : 'Edit'} kind="secondary" onPress={retake} style={{ flex: 1 }} />
-              {error?.kind !== 'missing_key' && error?.kind !== 'not_food' && (
-                <Button title="Try again" onPress={retry} style={{ flex: 1 }} />
-              )}
-            </>
-          ) : (
-            <Button title="Cancel" kind="secondary" onPress={cancel} style={{ flex: 1 }} />
-          )}
+          <Pressable accessibilityRole="button" onPress={switchToClaudeApp} style={styles.altButton}>
+            <Feather name="share" size={16} color={colors.accentText} />
+            <Text style={styles.altText}>Use the Claude app instead</Text>
+          </Pressable>
+          <View style={styles.footerRow}>
+            {phase === 'error' ? (
+              <>
+                <Button title={photoUri ? 'Retake' : 'Edit'} kind="secondary" onPress={retake} style={{ flex: 1 }} />
+                {error?.kind !== 'missing_key' && error?.kind !== 'not_food' && (
+                  <Button title="Try again" onPress={retry} style={{ flex: 1 }} />
+                )}
+              </>
+            ) : (
+              <Button title="Cancel" kind="secondary" onPress={cancel} style={{ flex: 1 }} />
+            )}
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -385,7 +398,10 @@ const styles = StyleSheet.create({
   stepPending: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: colors.track },
   stepLabel: { flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.ink },
   stepDetail: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
-  waitFooter: { flexDirection: 'row', gap: 10, padding: 20, paddingTop: 8 },
+  waitFooter: { gap: 6, padding: 20, paddingTop: 8 },
+  footerRow: { flexDirection: 'row', gap: 10 },
+  altButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  altText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.accentText },
   errorBox: {
     flexDirection: 'row',
     gap: 10,

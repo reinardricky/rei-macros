@@ -56,10 +56,10 @@ export class AnalysisError extends Error {
 }
 
 /** The text that goes alongside the photo. */
-export function userText(input: AnalyzeInput): string {
+export function userText(input: { slot: MealSlot; note?: string; hasPhoto: boolean }): string {
   const lines = [`Meal: ${input.slot}.`];
   if (input.note?.trim()) lines.push(`My note: ${input.note.trim()}`);
-  if (!input.imageBase64) lines.push('There is no photo; estimate from my description.');
+  if (!input.hasPhoto) lines.push('There is no photo; estimate from my description.');
   return lines.join('\n');
 }
 

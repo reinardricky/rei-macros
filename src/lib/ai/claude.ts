@@ -30,7 +30,7 @@ export async function analyzeWithClaude(input: AnalyzeInput, signal?: AbortSigna
   if (input.imageBase64) {
     content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: input.imageBase64 } });
   }
-  content.push({ type: 'text', text: userText(input) });
+  content.push({ type: 'text', text: userText({ ...input, hasPhoto: Boolean(input.imageBase64) }) });
 
   let response;
   try {

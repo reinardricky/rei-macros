@@ -17,17 +17,26 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/Buttons';
+import { useSettings } from '@/hooks/useSettings';
 import { aiProvider } from '@/lib/ai';
-import { MEAL_SLOTS, slotForTime, type MealSlot } from '@/lib/types';
+import { MEAL_SLOTS, slotForTime, type Analyzer, type MealSlot } from '@/lib/types';
 import { useNav, useRoute } from '@/navigation';
 import { colors, fonts } from '@/theme';
 
 type Photo = { uri: string; width: number; height: number };
 
+const ANALYZERS: { value: Analyzer; label: string; icon: 'cpu' | 'share' }[] = [
+  { value: 'api', label: aiProvider.name, icon: 'cpu' },
+  { value: 'claude-app', label: 'Claude app', icon: 'share' },
+];
+
 export function CaptureScreen() {
   const nav = useNav();
   const route = useRoute('capture');
   const date = route.date;
+  const { settings, update } = useSettings();
+  const analyzer = settings.analyzer;
+  const analyzerName = analyzer === 'claude-app' ? 'Claude' : aiProvider.name;
   const [slot, setSlot] = useState<MealSlot>(route.slot ?? slotForTime(new Date()));
   const [note, setNote] = useState(route.note ?? '');
   const [describing, setDescribing] = useState(route.describe ?? false);
@@ -39,7 +48,7 @@ export function CaptureScreen() {
 
   const goAnalyze = (photo?: Photo) => {
     nav.replace({
-      name: 'analyze',
+      name: analyzer === 'claude-app' ? 'claudeApp' : 'analyze',
       date,
       slot,
       note: note.trim(),
@@ -116,7 +125,6 @@ export function CaptureScreen() {
                 <View style={[styles.corner, styles.bl]} />
                 <View style={[styles.corner, styles.br]} />
               </View>
-              <Text style={styles.hint}>Fit the whole plate. A fork in frame helps with scale.</Text>
             </>
           ) : (
             <View style={styles.permission}>
@@ -138,6 +146,24 @@ export function CaptureScreen() {
         </View>
 
         <View style={styles.controls}>
+          <View style={styles.analyzerRow} accessibilityRole="radiogroup" accessibilityLabel="Analyze with">
+            <Text style={styles.analyzerLabel}>Analyze with</Text>
+            {ANALYZERS.map((a) => {
+              const on = a.value === analyzer;
+              return (
+                <Pressable
+                  key={a.value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: on }}
+                  onPress={() => update('analyzer', a.value)}
+                  style={[styles.analyzer, on && styles.analyzerOn]}
+                >
+                  <Feather name={a.icon} size={14} color={on ? colors.onAccent : colors.cameraText} />
+                  <Text style={[styles.slotText, on && styles.slotTextOn]}>{a.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
           <View style={styles.slots} accessibilityRole="radiogroup" accessibilityLabel="Meal">
             {MEAL_SLOTS.map((s) => {
               const on = s === slot;
@@ -157,14 +183,14 @@ export function CaptureScreen() {
 
           {!describing && (
             <View style={{ gap: 6 }}>
-              <Text style={styles.noteLabel}>Note for {aiProvider.name} (optional)</Text>
+              <Text style={styles.noteLabel}>Note for {analyzerName} (optional)</Text>
               <TextInput
                 value={note}
                 onChangeText={setNote}
                 placeholder="e.g. cooked in olive oil, about 1.5 cups rice"
                 placeholderTextColor="#8A96A1"
                 style={styles.noteInput}
-                accessibilityLabel={`Note for ${aiProvider.name}`}
+                accessibilityLabel={`Note for ${analyzerName}`}
                 returnKeyType="done"
               />
             </View>
@@ -278,6 +304,26 @@ const styles = StyleSheet.create({
   },
   permissionButtonText: { fontFamily: fonts.bold, fontSize: 14, color: colors.onAccent },
   controls: { paddingHorizontal: 16, paddingTop: 16, gap: 14 },
+  analyzerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  analyzerLabel: {
+    flex: 1,
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    color: colors.cameraSub,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  analyzer: {
+    height: 44,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.cameraLine,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  analyzerOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   slots: { flexDirection: 'row', gap: 8 },
   slot: {
     flex: 1,

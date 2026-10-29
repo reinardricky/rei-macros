@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS: Settings = {
   goals: { kcal: 2200, protein: 160, carbs: 220, fat: 70 },
   keepPhotos: true,
   reviewBeforeLogging: true,
+  analyzer: 'api',
 };
 
 /** Runs once per app start, before any screen renders (SQLiteProvider onInit). */
