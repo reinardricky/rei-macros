@@ -1,0 +1,46 @@
+// "Sky" theme from the mockups.
+export const colors = {
+  bg: '#F1F7FC',
+  surface: '#FFFFFF',
+  ink: '#0E1C2A',
+  muted: '#536273',
+  line: '#DFE8F0',
+  track: '#E3ECF4',
+  field: '#F6F9FC',
+  accent: '#7CC4F0',
+  onAccent: '#0B2235',
+  accentText: '#1D6AA5',
+  ring: '#3D9BDC',
+  soft: '#E2F1FB',
+  softInk: '#12476F',
+  today: '#B9DDF5',
+  dashed: '#AFC2D3',
+  danger: '#B42318',
+  dangerSoft: '#FDECEA',
+
+  protein: '#3557C9',
+  carbs: '#E39B2D',
+  fat: '#C8457A',
+  proteinSoft: '#E7ECFA',
+  proteinInk: '#243F99',
+  carbsSoft: '#FBEFDB',
+  carbsInk: '#7A4A06',
+  fatSoft: '#F8E3EC',
+  fatInk: '#8A2552',
+
+  camera: '#0D1217',
+  cameraPanel: '#232B33',
+  cameraLine: '#38434D',
+  cameraField: '#161D24',
+  cameraText: '#E3E8EC',
+  cameraSub: '#C2CBD3',
+};
+
+export const fonts = {
+  regular: 'DMSans_400Regular',
+  medium: 'DMSans_500Medium',
+  semibold: 'DMSans_600SemiBold',
+  bold: 'DMSans_700Bold',
+  displaySemibold: 'SpaceGrotesk_600SemiBold',
+  display: 'SpaceGrotesk_700Bold',
+};

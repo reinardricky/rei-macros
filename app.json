@@ -1,25 +1,52 @@
 {
   "expo": {
-    "name": "rei-macros",
+    "name": "Rei Macros",
     "slug": "rei-macros",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.reinardricky.reimacros"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#E2F1FB",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.reinardricky.reimacros"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-status-bar",
+      "expo-sqlite",
+      "expo-sharing",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Rei Macros to use your camera to photograph meals.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Rei Macros to pick meal photos from your library.",
+          "cameraPermission": "Allow Rei Macros to use your camera to photograph meals.",
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "scheme": "reimacros",
+    "backgroundColor": "#F1F7FC"
   }
 }
