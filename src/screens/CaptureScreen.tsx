@@ -61,7 +61,7 @@ export function CaptureScreen() {
     setTaking(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const picture = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      const picture = await cameraRef.current.takePictureAsync({ quality: 0.8, shutterSound: false });
       goAnalyze(picture);
     } catch {
       setTaking(false);

@@ -7,7 +7,7 @@ This is a plain native Android project (Expo SDK 57 / React Native 0.86) — you
 ## Requirements
 
 - **Node.js** and `npm install`.
-- **JDK 17 or 21** as `JAVA_HOME`.
+- **JDK 17 or 21** as `JAVA_HOME`. Gradle runs on `JAVA_HOME`; don't add `android/gradle/gradle-daemon-jvm.properties` (the RN 0.86 template's version pins JDK 25, which breaks the native CMake step).
 - **Android SDK**, with `ANDROID_HOME` set (Android Studio installs it to `%LOCALAPPDATA%\Android\Sdk`).
 - **CMake 3.31.6** from the SDK Manager, and Windows long paths enabled. React Native's native build creates file paths over 260 characters, which the SDK's default CMake 3.22.1 can't handle. Point Gradle at the newer one in `android/local.properties` (git-ignored, per machine):
   ```
