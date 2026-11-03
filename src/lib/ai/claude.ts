@@ -6,26 +6,21 @@ import { AnalysisError, MealAnalysisSchema, SYSTEM_PROMPT, toMealAnalysis, userT
 export const CLAUDE_MODEL = 'claude-opus-5-5';
 const NAME = 'Claude';
 
-export function hasClaudeKey(): boolean {
-  return Boolean(process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY);
-}
+// Reused across calls; rebuilt when the key in Settings changes.
+let cached: { apiKey: string; client: Anthropic } | null = null;
 
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic {
-  // Must be read with dot notation so Expo inlines it at build time.
-  const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
+function getClient(apiKey: string): Anthropic {
   if (!apiKey) {
-    throw new AnalysisError(
-      'missing_key',
-      'No Anthropic API key found. Add EXPO_PUBLIC_ANTHROPIC_API_KEY to the .env file, then restart Expo.',
-    );
+    throw new AnalysisError('missing_key', 'No Anthropic API key yet. Add one in Goals & settings, then try again.');
   }
-  client ??= new Anthropic({ apiKey, timeout: 120_000, maxRetries: 1 });
-  return client;
+  if (cached?.apiKey !== apiKey) {
+    cached = { apiKey, client: new Anthropic({ apiKey, timeout: 120_000, maxRetries: 1 }) };
+  }
+  return cached.client;
 }
 
-export async function analyzeWithClaude(input: AnalyzeInput, signal?: AbortSignal) {
+export async function analyzeWithClaude(apiKey: string, input: AnalyzeInput, signal?: AbortSignal) {
+  const client = getClient(apiKey);
   const content: Anthropic.Beta.BetaContentBlockParam[] = [];
   if (input.imageBase64) {
     content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: input.imageBase64 } });
@@ -34,7 +29,7 @@ export async function analyzeWithClaude(input: AnalyzeInput, signal?: AbortSigna
 
   let response;
   try {
-    response = await getClient().beta.messages.parse(
+    response = await client.beta.messages.parse(
       {
         model: CLAUDE_MODEL,
         max_tokens: 8000,
@@ -63,7 +58,7 @@ export async function analyzeWithClaude(input: AnalyzeInput, signal?: AbortSigna
 function toAnalysisError(error: unknown): AnalysisError {
   if (error instanceof AnalysisError) return error;
   if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) {
-    return new AnalysisError('auth', 'Your Anthropic API key was rejected. Check EXPO_PUBLIC_ANTHROPIC_API_KEY in .env.');
+    return new AnalysisError('auth', 'Your Anthropic API key was rejected. Check it in Goals & settings.');
   }
   if (error instanceof Anthropic.RateLimitError) {
     return new AnalysisError('rate_limit', 'Too many requests right now. Wait a moment and try again.');

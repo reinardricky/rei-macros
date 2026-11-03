@@ -10,6 +10,8 @@ export const DEFAULT_SETTINGS: Settings = {
   keepPhotos: true,
   reviewBeforeLogging: true,
   analyzer: 'api',
+  aiProvider: 'gemini',
+  apiKeys: { gemini: '', claude: '' },
 };
 
 /** Runs once per app start, before any screen renders (SQLiteProvider onInit). */
@@ -191,6 +193,7 @@ export async function getSettings(db: SQLiteDatabase): Promise<Settings> {
     ...DEFAULT_SETTINGS,
     ...stored,
     goals: { ...DEFAULT_SETTINGS.goals, ...stored.goals },
+    apiKeys: { ...DEFAULT_SETTINGS.apiKeys, ...stored.apiKeys },
   };
 }
 

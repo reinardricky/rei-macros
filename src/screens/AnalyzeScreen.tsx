@@ -16,7 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, IconButton } from '@/components/Buttons';
 import { AddItemForm, ItemCard } from '@/components/ItemEditor';
-import { aiProvider, AnalysisError, analyzeMeal, type MealAnalysis } from '@/lib/ai';
+import { useSettings } from '@/hooks/useSettings';
+import { AI_PROVIDERS, AnalysisError, analyzeMeal, type MealAnalysis } from '@/lib/ai';
 import { timestampOn, todayKey } from '@/lib/dates';
 import { getSettings, insertMeal } from '@/lib/db';
 import { fmtInt } from '@/lib/format';
@@ -47,6 +48,7 @@ export function AnalyzeScreen() {
   const route = useRoute('analyze');
   const { date, slot, note, photo: source, result } = route;
   const photoUri = source?.uri;
+  const providerName = AI_PROVIDERS[useSettings().settings.aiProvider].name;
 
   // With a `result` (pasted from the Claude app) there's nothing to analyze: start at review.
   const [phase, setPhase] = useState<Phase>(result ? 'review' : photoUri ? 'preparing' : 'asking');
@@ -83,10 +85,11 @@ export function AnalyzeScreen() {
         prepared = await preparePhoto(source.uri, source.width, source.height);
         onPrepared(prepared);
       }
-      const analysis = await analyzeMeal({ imageBase64: prepared?.base64, note, slot }, signal);
+      const { aiProvider, apiKeys } = await getSettings(db);
+      const analysis = await analyzeMeal(aiProvider, apiKeys[aiProvider], { imageBase64: prepared?.base64, note, slot }, signal);
       return { prepared, analysis };
     },
-    [note, slot, source],
+    [db, note, slot, source],
   );
 
   // Expects `phase` to already be 'preparing' (photo) or 'asking' (description).
@@ -194,7 +197,7 @@ export function AnalyzeScreen() {
             <>
               <View style={{ gap: 6 }}>
                 <Text style={styles.waitTitle} accessibilityRole="header">
-                  {aiProvider.name} is reading your {photoUri ? 'plate' : 'description'}
+                  {providerName} is reading your {photoUri ? 'plate' : 'description'}
                 </Text>
                 <Text style={styles.waitSub}>
                   This usually takes 5–30 seconds, longer when Google&apos;s free tier is busy. You can edit
@@ -221,8 +224,17 @@ export function AnalyzeScreen() {
           <View style={styles.footerRow}>
             {phase === 'error' ? (
               <>
-                <Button title={photoUri ? 'Retake' : 'Edit'} kind="secondary" onPress={retake} style={{ flex: 1 }} />
-                {error?.kind !== 'missing_key' && error?.kind !== 'not_food' && (
+                {error?.kind === 'missing_key' || error?.kind === 'auth' ? (
+                  <Button
+                    title="Settings"
+                    kind="secondary"
+                    onPress={() => nav.push({ name: 'settings' })}
+                    style={{ flex: 1 }}
+                  />
+                ) : (
+                  <Button title={photoUri ? 'Retake' : 'Edit'} kind="secondary" onPress={retake} style={{ flex: 1 }} />
+                )}
+                {error?.kind !== 'not_food' && (
                   <Button title="Try again" onPress={retry} style={{ flex: 1 }} />
                 )}
               </>

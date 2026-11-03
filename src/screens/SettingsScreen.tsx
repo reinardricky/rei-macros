@@ -1,14 +1,25 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/Buttons';
 import { useSettings } from '@/hooks/useSettings';
-import { aiProvider, hasApiKey } from '@/lib/ai';
+import { AI_PROVIDERS } from '@/lib/ai';
 import { exportLogAsCsv } from '@/lib/exportCsv';
-import type { Goals } from '@/lib/types';
+import type { AiProvider, Goals } from '@/lib/types';
 import { useNav } from '@/navigation';
 import { colors, fonts } from '@/theme';
 
@@ -26,7 +37,21 @@ export function SettingsScreen() {
   // Text being typed into a goal field; cleared once committed so the saved value shows.
   const [draft, setDraft] = useState<Partial<Record<keyof Goals, string>>>({});
   const [exporting, setExporting] = useState(false);
-  const keyFound = hasApiKey();
+  const [showKey, setShowKey] = useState(false);
+  const provider = AI_PROVIDERS[settings.aiProvider];
+  const savedKey = settings.apiKeys[settings.aiProvider];
+
+  // Saved on every change (a paste is one change), so tapping Back with the keyboard up loses nothing.
+  const setKey = (text: string) => update('apiKeys', { ...settings.apiKeys, [settings.aiProvider]: text.trim() });
+
+  const chooseProvider = (next: AiProvider) => {
+    setShowKey(false);
+    if (next !== settings.aiProvider) update('aiProvider', next);
+  };
+
+  const openKeyPage = () => {
+    Linking.openURL(provider.keyUrl).catch(() => Alert.alert('Could not open the browser', provider.keyUrl));
+  };
 
   const commitGoal = (key: keyof Goals) => {
     const text = draft[key];
@@ -87,30 +112,79 @@ export function SettingsScreen() {
 
           <Section title="AI analysis">
             <View style={styles.aiCard}>
+              <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel="AI provider">
+                {(Object.keys(AI_PROVIDERS) as AiProvider[]).map((p) => {
+                  const on = p === settings.aiProvider;
+                  return (
+                    <Pressable
+                      key={p}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: on }}
+                      onPress={() => chooseProvider(p)}
+                      style={[styles.choice, on && styles.choiceOn]}
+                    >
+                      <Text style={[styles.choiceText, on && styles.choiceTextOn]}>{AI_PROVIDERS[p].name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
               <View style={styles.aiRow}>
                 <View style={styles.aiIcon}>
                   <Feather name="cpu" size={20} color={colors.softInk} />
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.rowTitle}>{aiProvider.name}</Text>
-                  <Text style={styles.rowSub}>{aiProvider.model}</Text>
+                  <Text style={styles.rowTitle}>{provider.name}</Text>
+                  <Text style={styles.rowSub}>{provider.model}</Text>
                 </View>
                 <View style={styles.status}>
-                  <View style={[styles.statusDot, { backgroundColor: keyFound ? colors.ring : colors.danger }]} />
-                  <Text style={[styles.statusText, { color: keyFound ? colors.accentText : colors.danger }]}>
-                    {keyFound ? 'Key found' : 'No key'}
+                  <View style={[styles.statusDot, { backgroundColor: savedKey ? colors.ring : colors.danger }]} />
+                  <Text style={[styles.statusText, { color: savedKey ? colors.accentText : colors.danger }]}>
+                    {savedKey ? 'Key saved' : 'No key'}
                   </Text>
                 </View>
               </View>
-              <Text style={styles.aiNote}>
-                The API key (<Text style={styles.code}>{aiProvider.keyVar}</Text>) is read from the app&apos;s{' '}
-                <Text style={styles.code}>.env</Text> file when Expo starts. Change it there, not here.
-              </Text>
-              {aiProvider.name === 'Gemini' && (
+
+              <View style={styles.keyInputWrap}>
+                <TextInput
+                  value={savedKey}
+                  onChangeText={setKey}
+                  placeholder={`Paste your ${provider.name} API key`}
+                  placeholderTextColor={colors.muted}
+                  secureTextEntry={!showKey}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="off"
+                  returnKeyType="done"
+                  style={styles.keyInput}
+                  accessibilityLabel={`${provider.name} API key`}
+                />
+                <IconButton
+                  icon={showKey ? 'eye-off' : 'eye'}
+                  label={showKey ? 'Hide key' : 'Show key'}
+                  variant="ghost"
+                  size={40}
+                  onPress={() => setShowKey((s) => !s)}
+                />
+              </View>
+
+              <Pressable
+                accessibilityRole="link"
+                onPress={openKeyPage}
+                style={({ pressed }) => [styles.linkButton, pressed && { opacity: 0.6 }]}
+              >
+                <Feather name="external-link" size={16} color={colors.accentText} />
+                <Text style={styles.linkText}>{provider.keyLinkLabel}</Text>
+              </Pressable>
+
+              <Text style={styles.aiNote}>The key is saved only on this phone and is sent only to {provider.name}.</Text>
+              {settings.aiProvider === 'gemini' ? (
                 <Text style={styles.aiNote}>
                   On Gemini&apos;s free tier, Google may use what you send, including meal photos, to improve its
                   products, and people may review it.
                 </Text>
+              ) : (
+                <Text style={styles.aiNote}>The Claude API is billed pay-as-you-go to your Anthropic account.</Text>
               )}
             </View>
           </Section>
@@ -124,7 +198,7 @@ export function SettingsScreen() {
             />
             <ToggleRow
               title="Always review before logging"
-              subtitle={`Turn off to log ${aiProvider.name}'s estimate straight away`}
+              subtitle={`Turn off to log ${provider.name}'s estimate straight away`}
               value={settings.reviewBeforeLogging}
               onChange={(v) => update('reviewBeforeLogging', v)}
             />
@@ -222,5 +296,41 @@ const styles = StyleSheet.create({
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { fontFamily: fonts.semibold, fontSize: 13 },
   aiNote: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.muted },
-  code: { fontFamily: 'monospace', fontSize: 12, color: colors.ink },
+  choices: { flexDirection: 'row', gap: 8 },
+  choice: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.field,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  choiceOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  choiceText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.muted },
+  choiceTextOn: { color: colors.onAccent },
+  keyInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.field,
+    paddingLeft: 12,
+    paddingRight: 4,
+  },
+  keyInput: { flex: 1, height: '100%', fontFamily: 'monospace', fontSize: 13, color: colors.ink },
+  linkButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: colors.soft,
+    paddingHorizontal: 14,
+  },
+  linkText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.accentText },
 });

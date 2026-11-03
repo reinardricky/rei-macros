@@ -13,7 +13,7 @@ This is a plain native Android project (Expo SDK 57 / React Native 0.86) — you
   ```
   cmake.dir=C\:/Users/<you>/AppData/Local/Android/Sdk/cmake/3.31.6
   ```
-- A Gemini API key: copy `.env.example` to `.env` and fill in `EXPO_PUBLIC_GEMINI_API_KEY` (free at https://aistudio.google.com/apikey).
+- A Gemini API key, entered in the app under **Goals & settings → AI analysis** (the **Get a free key** button there opens https://aistudio.google.com/apikey). The key is stored in the app's SQLite database on the phone, not in the build.
 
 Don't build from Android Studio and the terminal at the same time — they fight over the same native build folders.
 
@@ -60,7 +60,7 @@ On the camera screen, switch **Analyze with** to **Claude app**. The app copies 
 
 ## Switching the in-app AI to the Claude API
 
-Set `EXPO_PUBLIC_AI_PROVIDER=claude` and `EXPO_PUBLIC_ANTHROPIC_API_KEY` in `.env` (see `.env.example`). Claude's API is pay-as-you-go.
+In **Goals & settings → AI analysis**, pick **Claude** and paste an Anthropic API key (the button there opens the Claude Console). Each provider keeps its own key, so you can switch back and forth. Claude's API is pay-as-you-go.
 
 ## Project layout
 
@@ -68,7 +68,7 @@ Set `EXPO_PUBLIC_AI_PROVIDER=claude` and `EXPO_PUBLIC_ANTHROPIC_API_KEY` in `.en
 - `src/navigation.tsx` — small stack navigator (no Expo Router)
 - `src/screens/` — Today / History tabs, camera, analyze & review, settings
 - `src/components/` — shared UI
-- `src/lib/ai/` — the AI call: `shared.ts` (prompt and response schema), `gemini.ts`, `claude.ts`, `index.ts` (picks one)
+- `src/lib/ai/` — the AI call: `shared.ts` (prompt and response schema), `gemini.ts`, `claude.ts`, `index.ts` (the provider list and key links; calls the one chosen in Settings)
 - `src/lib/db.ts` — SQLite schema, migrations and queries
 - `src/lib/photos.ts` — photo resizing and storage
 - `metro.config.js` — loads the Anthropic SDK's CommonJS build (its ES-module build crashes Metro)

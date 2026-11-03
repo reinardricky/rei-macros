@@ -13,26 +13,19 @@ const TIMEOUT_MS = 60_000;
 // Gemini accepts a subset of JSON Schema; drop the `$schema` marker Zod adds.
 const { $schema: _ignored, ...RESPONSE_SCHEMA } = z.toJSONSchema(MealAnalysisSchema);
 
-export function hasGeminiKey(): boolean {
-  return Boolean(process.env.EXPO_PUBLIC_GEMINI_API_KEY);
-}
+// Reused across calls; rebuilt when the key in Settings changes.
+let cached: { apiKey: string; client: GoogleGenAI } | null = null;
 
-let client: GoogleGenAI | null = null;
-
-function getClient(): GoogleGenAI {
-  // Must be read with dot notation so Expo inlines it at build time.
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+function getClient(apiKey: string): GoogleGenAI {
   if (!apiKey) {
-    throw new AnalysisError(
-      'missing_key',
-      'No Gemini API key found. Add EXPO_PUBLIC_GEMINI_API_KEY to the .env file, then restart Expo.',
-    );
+    throw new AnalysisError('missing_key', 'No Gemini API key yet. Add one in Goals & settings, then try again.');
   }
-  client ??= new GoogleGenAI({ apiKey });
-  return client;
+  if (cached?.apiKey !== apiKey) cached = { apiKey, client: new GoogleGenAI({ apiKey }) };
+  return cached.client;
 }
 
-export async function analyzeWithGemini(input: AnalyzeInput, signal?: AbortSignal) {
+export async function analyzeWithGemini(apiKey: string, input: AnalyzeInput, signal?: AbortSignal) {
+  const client = getClient(apiKey);
   const parts: Part[] = [];
   if (input.imageBase64) parts.push({ inlineData: { mimeType: 'image/jpeg', data: input.imageBase64 } });
   parts.push({ text: userText({ ...input, hasPhoto: Boolean(input.imageBase64) }) });
@@ -40,7 +33,7 @@ export async function analyzeWithGemini(input: AnalyzeInput, signal?: AbortSigna
   let lastError: AnalysisError | null = null;
   for (const model of GEMINI_MODELS) {
     try {
-      const text = await generate(model, parts, signal);
+      const text = await generate(client, model, parts, signal);
       let parsed;
       try {
         parsed = MealAnalysisSchema.parse(JSON.parse(text));
@@ -58,7 +51,7 @@ export async function analyzeWithGemini(input: AnalyzeInput, signal?: AbortSigna
   throw lastError ?? new AnalysisError('api', 'Something went wrong.');
 }
 
-async function generate(model: string, parts: Part[], signal?: AbortSignal): Promise<string> {
+async function generate(client: GoogleGenAI, model: string, parts: Part[], signal?: AbortSignal): Promise<string> {
   // One signal that fires on the caller's cancel or on our own timeout.
   // (A flag, not abort(reason): React Native's AbortController doesn't carry reasons.)
   const controller = new AbortController();
@@ -70,7 +63,7 @@ async function generate(model: string, parts: Part[], signal?: AbortSignal): Pro
   const onCancel = () => controller.abort();
   signal?.addEventListener('abort', onCancel);
   try {
-    const response = await getClient().models.generateContent({
+    const response = await client.models.generateContent({
       model,
       contents: [{ role: 'user', parts }],
       config: {
@@ -118,7 +111,7 @@ function toAnalysisError(error: unknown): AnalysisError {
   if (error instanceof ApiError) {
     const { status, message } = error;
     if (status === 401 || status === 403 || (status === 400 && /api key/i.test(message))) {
-      return new AnalysisError('auth', 'Your Gemini API key was rejected. Check EXPO_PUBLIC_GEMINI_API_KEY in .env.');
+      return new AnalysisError('auth', 'Your Gemini API key was rejected. Check it in Goals & settings.');
     }
     if (status === 429) {
       const retry = /retry in ([\dhms.]+)/i.exec(message)?.[1];

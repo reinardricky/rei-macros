@@ -1,20 +1,32 @@
-import { analyzeWithClaude, CLAUDE_MODEL, hasClaudeKey } from './claude';
-import { analyzeWithGemini, GEMINI_MODEL, hasGeminiKey } from './gemini';
+import type { AiProvider } from '../types';
+import { analyzeWithClaude, CLAUDE_MODEL } from './claude';
+import { analyzeWithGemini, GEMINI_MODEL } from './gemini';
 import type { AnalyzeInput, MealAnalysis } from './shared';
 
 export { AnalysisError, type AnalysisErrorKind, type MealAnalysis } from './shared';
 
-/** Which AI analyzes meals. Set EXPO_PUBLIC_AI_PROVIDER=claude in .env to switch; Gemini is the default. */
-const useClaude = process.env.EXPO_PUBLIC_AI_PROVIDER === 'claude';
+/** The APIs the in-app analysis can use. Picked, with its key, in Settings. */
+export const AI_PROVIDERS: Record<AiProvider, { name: string; model: string; keyUrl: string; keyLinkLabel: string }> =
+  {
+    gemini: {
+      name: 'Gemini',
+      model: GEMINI_MODEL,
+      keyUrl: 'https://aistudio.google.com/apikey',
+      keyLinkLabel: 'Get a free key from Google AI Studio',
+    },
+    claude: {
+      name: 'Claude',
+      model: CLAUDE_MODEL,
+      keyUrl: 'https://console.anthropic.com/settings/keys',
+      keyLinkLabel: 'Get a key from the Claude Console',
+    },
+  };
 
-export const aiProvider = useClaude
-  ? { name: 'Claude', model: CLAUDE_MODEL, keyVar: 'EXPO_PUBLIC_ANTHROPIC_API_KEY' }
-  : { name: 'Gemini', model: GEMINI_MODEL, keyVar: 'EXPO_PUBLIC_GEMINI_API_KEY' };
-
-export function hasApiKey(): boolean {
-  return useClaude ? hasClaudeKey() : hasGeminiKey();
-}
-
-export function analyzeMeal(input: AnalyzeInput, signal?: AbortSignal): Promise<MealAnalysis> {
-  return useClaude ? analyzeWithClaude(input, signal) : analyzeWithGemini(input, signal);
+export function analyzeMeal(
+  provider: AiProvider,
+  apiKey: string,
+  input: AnalyzeInput,
+  signal?: AbortSignal,
+): Promise<MealAnalysis> {
+  return provider === 'claude' ? analyzeWithClaude(apiKey, input, signal) : analyzeWithGemini(apiKey, input, signal);
 }

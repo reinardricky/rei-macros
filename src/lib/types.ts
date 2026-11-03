@@ -35,11 +35,17 @@ export type Goals = Macros;
 /** `api` = the in-app AI call (Gemini by default); `claude-app` = hand off to the Claude app. */
 export type Analyzer = 'api' | 'claude-app';
 
+/** Which API the in-app AI call uses. */
+export type AiProvider = 'gemini' | 'claude';
+
 export type Settings = {
   goals: Goals;
   keepPhotos: boolean;
   reviewBeforeLogging: boolean;
   analyzer: Analyzer;
+  aiProvider: AiProvider;
+  /** Entered in Settings and stored only in this phone's database. */
+  apiKeys: Record<AiProvider, string>;
 };
 
 export type DayTotals = Macros & {

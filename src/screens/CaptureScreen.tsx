@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Pressable,
@@ -18,17 +19,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/Buttons';
 import { useSettings } from '@/hooks/useSettings';
-import { aiProvider } from '@/lib/ai';
+import { AI_PROVIDERS } from '@/lib/ai';
 import { MEAL_SLOTS, slotForTime, type Analyzer, type MealSlot } from '@/lib/types';
 import { useNav, useRoute } from '@/navigation';
 import { colors, fonts } from '@/theme';
 
 type Photo = { uri: string; width: number; height: number };
-
-const ANALYZERS: { value: Analyzer; label: string; icon: 'cpu' | 'share' }[] = [
-  { value: 'api', label: aiProvider.name, icon: 'cpu' },
-  { value: 'claude-app', label: 'Claude app', icon: 'share' },
-];
 
 export function CaptureScreen() {
   const nav = useNav();
@@ -36,23 +32,30 @@ export function CaptureScreen() {
   const date = route.date;
   const { settings, update } = useSettings();
   const analyzer = settings.analyzer;
-  const analyzerName = analyzer === 'claude-app' ? 'Claude' : aiProvider.name;
+  const providerName = AI_PROVIDERS[settings.aiProvider].name;
+  const analyzerName = analyzer === 'claude-app' ? 'Claude' : providerName;
+  const analyzers: { value: Analyzer; label: string; icon: 'cpu' | 'share' }[] = [
+    { value: 'api', label: providerName, icon: 'cpu' },
+    { value: 'claude-app', label: 'Claude app', icon: 'share' },
+  ];
   const [slot, setSlot] = useState<MealSlot>(route.slot ?? slotForTime(new Date()));
   const [note, setNote] = useState(route.note ?? '');
   const [describing, setDescribing] = useState(route.describe ?? false);
   const [flashOn, setFlashOn] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [taking, setTaking] = useState(false);
+  // A taken or picked photo waits here so a note can be added before analyzing.
+  const [photo, setPhoto] = useState<Photo | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
 
-  const goAnalyze = (photo?: Photo) => {
+  const goAnalyze = () => {
     nav.replace({
       name: analyzer === 'claude-app' ? 'claudeApp' : 'analyze',
       date,
       slot,
       note: note.trim(),
-      ...(photo && { photo: { uri: photo.uri, width: photo.width, height: photo.height } }),
+      ...(photo && !describing && { photo: { uri: photo.uri, width: photo.width, height: photo.height } }),
     });
   };
 
@@ -62,16 +65,29 @@ export function CaptureScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const picture = await cameraRef.current.takePictureAsync({ quality: 0.8, shutterSound: false });
-      goAnalyze(picture);
+      setPhoto(picture);
     } catch {
+      // Leave the camera up so they can try again.
+    } finally {
       setTaking(false);
     }
   };
 
   const pickFromLibrary = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9 });
-    if (!result.canceled && result.assets[0]) goAnalyze(result.assets[0]);
+    if (!result.canceled && result.assets[0]) {
+      setPhoto(result.assets[0]);
+      setDescribing(false);
+    }
   };
+
+  const retake = () => {
+    // The camera remounts, so wait for it to be ready again.
+    setCameraReady(false);
+    setPhoto(null);
+  };
+
+  const reviewing = photo !== null && !describing;
 
   const granted = permission?.granted ?? false;
 
@@ -82,9 +98,9 @@ export function CaptureScreen() {
         <View style={styles.header}>
           <IconButton icon="x" label="Close camera" variant="dark" onPress={nav.back} />
           <Text style={styles.title} accessibilityRole="header">
-            {describing ? 'Describe your meal' : 'Snap your meal'}
+            {describing ? 'Describe your meal' : reviewing ? 'Add a note' : 'Snap your meal'}
           </Text>
-          {describing ? (
+          {describing || reviewing ? (
             <View style={{ width: 44 }} />
           ) : (
             <IconButton
@@ -107,6 +123,13 @@ export function CaptureScreen() {
               placeholderTextColor={colors.cameraSub}
               style={styles.describeInput}
               accessibilityLabel="Meal description"
+            />
+          ) : reviewing ? (
+            <Image
+              source={{ uri: photo.uri }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+              accessibilityLabel="Meal photo"
             />
           ) : permission === null ? (
             <ActivityIndicator color="#FFFFFF" />
@@ -148,7 +171,7 @@ export function CaptureScreen() {
         <View style={styles.controls}>
           <View style={styles.analyzerRow} accessibilityRole="radiogroup" accessibilityLabel="Analyze with">
             <Text style={styles.analyzerLabel}>Analyze with</Text>
-            {ANALYZERS.map((a) => {
+            {analyzers.map((a) => {
               const on = a.value === analyzer;
               return (
                 <Pressable
@@ -205,13 +228,13 @@ export function CaptureScreen() {
             size={52}
             onPress={pickFromLibrary}
           />
-          {describing ? (
+          {describing || reviewing ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ disabled: !note.trim() }}
-              disabled={!note.trim()}
-              onPress={() => goAnalyze()}
-              style={[styles.analyzeButton, !note.trim() && { opacity: 0.4 }]}
+              accessibilityState={{ disabled: describing && !note.trim() }}
+              disabled={describing && !note.trim()}
+              onPress={goAnalyze}
+              style={[styles.analyzeButton, describing && !note.trim() && { opacity: 0.4 }]}
             >
               <Text style={styles.analyzeText}>Analyze</Text>
             </Pressable>
@@ -227,13 +250,17 @@ export function CaptureScreen() {
               <View style={styles.shutterInner} />
             </Pressable>
           )}
-          <IconButton
-            icon={describing ? 'camera' : 'edit-3'}
-            label={describing ? 'Use the camera instead' : 'Type a meal instead'}
-            variant="dark"
-            size={52}
-            onPress={() => setDescribing((d) => !d)}
-          />
+          {reviewing ? (
+            <IconButton icon="rotate-ccw" label="Retake photo" variant="dark" size={52} onPress={retake} />
+          ) : (
+            <IconButton
+              icon={describing ? 'camera' : 'edit-3'}
+              label={describing ? 'Use the camera instead' : 'Type a meal instead'}
+              variant="dark"
+              size={52}
+              onPress={() => setDescribing((d) => !d)}
+            />
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

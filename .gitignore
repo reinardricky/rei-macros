@@ -39,5 +39,5 @@ yarn-error.*
 # generated native folders (android/ is committed - see README)
 /ios
 
-# local env files (holds your API keys)
+# local env files (API keys now live in the app settings, not here)
 .env

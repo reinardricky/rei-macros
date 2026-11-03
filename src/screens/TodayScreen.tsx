@@ -1,18 +1,19 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/Buttons';
 import { CalorieRing } from '@/components/CalorieRing';
 import { MacroBar } from '@/components/MacroBar';
 import { MealCard } from '@/components/MealCard';
+import { MealSheet } from '@/components/MealSheet';
 import { useSettings } from '@/hooks/useSettings';
-import { aiProvider, hasApiKey } from '@/lib/ai';
+import { AI_PROVIDERS } from '@/lib/ai';
 import { addDays, isDateKey, longDate, relativeDayName, todayKey } from '@/lib/dates';
 import { deleteMeal, getMealsForDate } from '@/lib/db';
-import { fmtAmount, fmtInt } from '@/lib/format';
+import { fmtInt } from '@/lib/format';
 import { deletePhoto } from '@/lib/photos';
 import { MEAL_SLOTS, slotForTime, sumMacros, type Meal } from '@/lib/types';
 import { useFocusEffect, useNav, useRoute } from '@/navigation';
@@ -25,8 +26,11 @@ export function TodayScreen() {
   const route = useRoute('tabs');
   const [date, setDate] = useState(() => (isDateKey(route.date) ? route.date : todayKey()));
   const [meals, setMeals] = useState<Meal[]>([]);
-  const { settings } = useSettings();
+  const [openMeal, setOpenMeal] = useState<Meal | null>(null);
+  const { settings, loaded } = useSettings();
   const goals = settings.goals;
+  // The Claude app hand-off needs no key, so only nag when the in-app call is chosen.
+  const needsKey = loaded && settings.analyzer === 'api' && !settings.apiKeys[settings.aiProvider];
 
   const linkKey = `${route.date}|${route.at}`;
   const [seenLinkKey, setSeenLinkKey] = useState(linkKey);
@@ -49,20 +53,11 @@ export function TodayScreen() {
   const isToday = date === todayKey();
   const nextSlot = isToday ? slotForTime(new Date()) : (MEAL_SLOTS.find((s) => !meals.some((m) => m.slot === s)) ?? 'Snack');
 
-  const openMeal = (meal: Meal) => {
-    const lines = meal.items.map((it) => `• ${it.name}, ${fmtAmount(it.amount, it.unit)}: ${fmtInt(it.kcal)} kcal`);
-    Alert.alert(meal.name, lines.join('\n'), [
-      { text: 'Close', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteMeal(db, meal.id);
-          deletePhoto(meal.photoUri);
-          load();
-        },
-      },
-    ]);
+  const removeMeal = async (meal: Meal) => {
+    setOpenMeal(null);
+    await deleteMeal(db, meal.id);
+    deletePhoto(meal.photoUri);
+    load();
   };
 
   return (
@@ -82,13 +77,19 @@ export function TodayScreen() {
           </View>
         </View>
 
-        {!hasApiKey() && (
-          <View style={styles.banner}>
+        {needsKey && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => nav.push({ name: 'settings' })}
+            style={({ pressed }) => [styles.banner, pressed && { opacity: 0.6 }]}
+          >
             <Feather name="key" size={18} color={colors.carbsInk} />
             <Text style={styles.bannerText}>
-              No API key yet. Add {aiProvider.keyVar} to .env and restart Expo to enable photo analysis.
+              No {AI_PROVIDERS[settings.aiProvider].name} API key yet. Tap to add one in settings and turn on photo
+              analysis.
             </Text>
-          </View>
+            <Feather name="chevron-right" size={18} color={colors.carbsInk} />
+          </Pressable>
         )}
 
         <View style={styles.totalsCard}>
@@ -109,7 +110,7 @@ export function TodayScreen() {
 
         <View style={styles.meals}>
           {meals.map((meal) => (
-            <MealCard key={meal.id} meal={meal} onPress={() => openMeal(meal)} />
+            <MealCard key={meal.id} meal={meal} onPress={() => setOpenMeal(meal)} />
           ))}
 
           {meals.length === 0 && (
@@ -128,6 +129,7 @@ export function TodayScreen() {
           </Pressable>
         </View>
       </ScrollView>
+      <MealSheet meal={openMeal} onClose={() => setOpenMeal(null)} onDelete={removeMeal} />
     </SafeAreaView>
   );
 }
